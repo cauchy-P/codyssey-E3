@@ -1,20 +1,17 @@
 """MAC 기반 Mini NPU 시뮬레이터."""
 
-from __future__ import annotations
-
 import json
 import re
 import sys
 import time
 from pathlib import Path
-from typing import Any
 
 EPSILON = 1e-9
 SIZES = (3, 5, 13, 25)
 PATTERN_KEY = re.compile(r"size_(\d+)_(\d+)")
 
 
-def validate_matrix(value: Any) -> list[list[float]]:
+def validate_matrix(value):
     if not isinstance(value, list) or not value:
         raise ValueError("행렬은 비어 있지 않은 2차원 리스트여야 합니다.")
     size = len(value)
@@ -26,7 +23,7 @@ def validate_matrix(value: Any) -> list[list[float]]:
         raise ValueError("행렬에는 숫자만 포함되어야 합니다.") from error
 
 
-def mac(pattern: list[list[float]], filter_: list[list[float]]) -> float:
+def mac(pattern, filter_):
     """두 NxN 행렬의 같은 위치를 곱해 모두 더한다."""
     left, right = validate_matrix(pattern), validate_matrix(filter_)
     if len(left) != len(right):
@@ -38,13 +35,13 @@ def mac(pattern: list[list[float]], filter_: list[list[float]]) -> float:
     return score
 
 
-def decide(cross_score: float, x_score: float) -> str:
+def decide(cross_score, x_score):
     if abs(cross_score - x_score) < EPSILON:
         return "UNDECIDED"
     return "Cross" if cross_score > x_score else "X"
 
 
-def normalize_label(label: Any) -> str:
+def normalize_label(label):
     value = str(label).strip().lower()
     if value in {"+", "cross"}:
         return "Cross"
@@ -53,7 +50,7 @@ def normalize_label(label: Any) -> str:
     raise ValueError(f"지원하지 않는 라벨입니다: {label}")
 
 
-def safe_input(prompt: str = "") -> str:
+def safe_input(prompt=""):
     try:
         return input(prompt)
     except (EOFError, KeyboardInterrupt) as error:
@@ -61,7 +58,7 @@ def safe_input(prompt: str = "") -> str:
         raise SystemExit(0) from error
 
 
-def read_matrix(name: str, size: int = 3) -> list[list[float]]:
+def read_matrix(name, size=3):
     while True:
         print(f"\n{name} ({size}줄 입력, 공백 구분)")
         lines = [safe_input() for _ in range(size)]
@@ -74,8 +71,8 @@ def read_matrix(name: str, size: int = 3) -> list[list[float]]:
             print(f"입력 형식 오류: {error}\n다시 입력해주세요.")
 
 
-def confirm_filters(filter_a: list[list[float]], filter_b: list[list[float]]) -> bool:
-    def show(matrix: list[list[float]]) -> None:
+def confirm_filters(filter_a, filter_b):
+    def show(matrix):
         for row in matrix:
             print(" ".join(str(int(value)) if value.is_integer() else str(value) for value in row))
 
@@ -92,14 +89,14 @@ def confirm_filters(filter_a: list[list[float]], filter_b: list[list[float]]) ->
         print("y 또는 n만 입력해주세요.")
 
 
-def elapsed_ms(pattern: list[list[float]], filter_: list[list[float]], repeat: int = 10) -> float:
+def elapsed_ms(pattern, filter_, repeat=10):
     start = time.perf_counter()
     for _ in range(repeat):
         mac(pattern, filter_)
     return (time.perf_counter() - start) * 1000 / repeat
 
 
-def load_data(path: str | Path) -> dict[str, Any]:
+def load_data(path):
     try:
         with Path(path).open(encoding="utf-8") as file:
             data = json.load(file)
@@ -112,14 +109,14 @@ def load_data(path: str | Path) -> dict[str, Any]:
     return data
 
 
-def pattern_size(key: str) -> int:
+def pattern_size(key):
     match = PATTERN_KEY.fullmatch(key)
     if not match:
         raise ValueError(f"패턴 키 형식 오류: {key}")
     return int(match.group(1))
 
 
-def get_filters(filters: dict[str, Any], size: int) -> tuple[list[list[float]], list[list[float]]]:
+def get_filters(filters, size):
     size_key = f"size_{size}"
     item = filters.get(size_key)
     if not isinstance(item, dict):
@@ -135,7 +132,7 @@ def get_filters(filters: dict[str, Any], size: int) -> tuple[list[list[float]], 
     return cross, x_filter
 
 
-def print_benchmark(results: list[dict[str, Any]], filters: dict[str, Any]) -> None:
+def print_benchmark(results, filters):
     print("\n=== 성능 분석 (평균/10회) ===\n크기\t평균 시간(ms)\t연산 횟수")
     for size in SIZES:
         times = [item["time"] for item in results if item["size"] == size and item["time"] is not None]
@@ -149,7 +146,7 @@ def print_benchmark(results: list[dict[str, Any]], filters: dict[str, Any]) -> N
         print(f"{size}×{size}\t{average}\t{size * size}")
 
 
-def print_summary(results: list[dict[str, Any]]) -> None:
+def print_summary(results):
     passed = sum(item["passed"] for item in results)
     print(f"\n=== 결과 요약 ===\n총 테스트: {len(results)}개\n통과: {passed}개\n실패: {len(results) - passed}개")
     failures = [item for item in results if not item["passed"]]
@@ -159,7 +156,7 @@ def print_summary(results: list[dict[str, Any]]) -> None:
             print(f"- {item['key']}: {item['reason']}")
 
 
-def analyze_json(path: str) -> None:
+def analyze_json(path):
     try:
         data = load_data(path)
         filters, patterns = data["filters"], data["patterns"]
@@ -177,10 +174,10 @@ def analyze_json(path: str) -> None:
         except ValueError as error:
             print(f"FAIL: {error}")
 
-    results: list[dict[str, Any]] = []
+    results = []
     print("\n=== 패턴 분석 (라벨 정규화 적용) ===")
     for key, item in patterns.items():
-        result: dict[str, Any] = {"key": key, "size": None, "time": None, "passed": False, "reason": ""}
+        result = {"key": key, "size": None, "time": None, "passed": False, "reason": ""}
         try:
             if not isinstance(item, dict) or "input" not in item or "expected" not in item:
                 raise ValueError("패턴에는 input과 expected가 필요합니다.")
@@ -203,7 +200,7 @@ def analyze_json(path: str) -> None:
     print_summary(results)
 
 
-def user_mode() -> None:
+def user_mode():
     while True:
         filter_a, filter_b = read_matrix("필터 A"), read_matrix("필터 B")
         if confirm_filters(filter_a, filter_b):
@@ -217,7 +214,7 @@ def user_mode() -> None:
     print(f"판정: {result}")
 
 
-def main() -> None:
+def main():
     default_path = next((path for path in ("data/data.json", "data.json") if Path(path).exists()), "data/data.json")
     path = sys.argv[1] if len(sys.argv) > 1 else default_path
     print("=== Mini NPU Simulator ===\n\n[모드 선택]\n\n1. 사용자 입력 (3x3)\n2. data.json 분석")
@@ -232,3 +229,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
