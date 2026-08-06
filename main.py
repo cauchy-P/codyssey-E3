@@ -11,6 +11,7 @@ SIZES = (3, 5, 13, 25)
 PATTERN_KEY = re.compile(r"size_(\d+)_(\d+)")
 
 
+# 입력값이 숫자로 이루어진 정사각 행렬인지 확인한다.
 def validate_matrix(value):
     if not isinstance(value, list) or not value:
         raise ValueError("행렬은 비어 있지 않은 2차원 리스트여야 합니다.")
@@ -23,6 +24,7 @@ def validate_matrix(value):
         raise ValueError("행렬에는 숫자만 포함되어야 합니다.") from error
 
 
+# 두 행렬의 같은 위치 값을 곱하고 모두 더한다.
 def mac(pattern, filter_):
     """두 NxN 행렬의 같은 위치를 곱해 모두 더한다."""
     left, right = validate_matrix(pattern), validate_matrix(filter_)
@@ -35,12 +37,14 @@ def mac(pattern, filter_):
     return score
 
 
+# 두 점수를 비교해 Cross, X, UNDECIDED 중 하나를 반환한다.
 def decide(cross_score, x_score):
     if abs(cross_score - x_score) < EPSILON:
         return "UNDECIDED"
     return "Cross" if cross_score > x_score else "X"
 
 
+# JSON의 다양한 라벨 표기를 표준 라벨로 통일한다.
 def normalize_label(label):
     value = str(label).strip().lower()
     if value in {"+", "cross"}:
@@ -50,6 +54,7 @@ def normalize_label(label):
     raise ValueError(f"지원하지 않는 라벨입니다: {label}")
 
 
+# 사용자의 입력을 안전하게 받아 중단 상황을 처리한다.
 def safe_input(prompt=""):
     try:
         return input(prompt)
@@ -58,6 +63,7 @@ def safe_input(prompt=""):
         raise SystemExit(0) from error
 
 
+# 사용자에게 행렬을 입력받고 형식을 검증한다.
 def read_matrix(name, size=3):
     while True:
         print(f"\n{name} ({size}줄 입력, 공백 구분)")
@@ -71,7 +77,9 @@ def read_matrix(name, size=3):
             print(f"입력 형식 오류: {error}\n다시 입력해주세요.")
 
 
+# 입력한 두 필터를 보여주고 진행 여부를 확인한다.
 def confirm_filters(filter_a, filter_b):
+    # 행렬을 읽기 쉬운 형태로 출력한다.
     def show(matrix):
         for row in matrix:
             print(" ".join(str(int(value)) if value.is_integer() else str(value) for value in row))
@@ -89,6 +97,7 @@ def confirm_filters(filter_a, filter_b):
         print("y 또는 n만 입력해주세요.")
 
 
+# MAC 연산을 반복해 평균 실행 시간을 측정한다.
 def elapsed_ms(pattern, filter_, repeat=10):
     start = time.perf_counter()
     for _ in range(repeat):
@@ -96,6 +105,7 @@ def elapsed_ms(pattern, filter_, repeat=10):
     return (time.perf_counter() - start) * 1000 / repeat
 
 
+# JSON 파일을 읽고 최상위 구조를 검증한다.
 def load_data(path):
     try:
         with Path(path).open(encoding="utf-8") as file:
@@ -109,6 +119,7 @@ def load_data(path):
     return data
 
 
+# 패턴 키에서 행렬 크기 N을 추출한다.
 def pattern_size(key):
     match = PATTERN_KEY.fullmatch(key)
     if not match:
@@ -116,6 +127,7 @@ def pattern_size(key):
     return int(match.group(1))
 
 
+# 지정한 크기의 Cross 필터와 X 필터를 찾아 검증한다.
 def get_filters(filters, size):
     size_key = f"size_{size}"
     item = filters.get(size_key)
@@ -132,6 +144,7 @@ def get_filters(filters, size):
     return cross, x_filter
 
 
+# 크기별 평균 시간과 MAC 연산 횟수를 출력한다.
 def print_benchmark(results, filters):
     print("\n=== 성능 분석 (평균/10회) ===\n크기\t평균 시간(ms)\t연산 횟수")
     for size in SIZES:
@@ -146,6 +159,7 @@ def print_benchmark(results, filters):
         print(f"{size}×{size}\t{average}\t{size * size}")
 
 
+# 전체 테스트 결과와 실패 케이스를 요약한다.
 def print_summary(results):
     passed = sum(item["passed"] for item in results)
     print(f"\n=== 결과 요약 ===\n총 테스트: {len(results)}개\n통과: {passed}개\n실패: {len(results) - passed}개")
@@ -156,6 +170,7 @@ def print_summary(results):
             print(f"- {item['key']}: {item['reason']}")
 
 
+# data.json의 모든 패턴을 판정하고 결과를 출력한다.
 def analyze_json(path):
     try:
         data = load_data(path)
@@ -200,6 +215,7 @@ def analyze_json(path):
     print_summary(results)
 
 
+# 사용자 입력 행렬의 MAC 점수와 판정 결과를 출력한다.
 def user_mode():
     while True:
         filter_a, filter_b = read_matrix("필터 A"), read_matrix("필터 B")
@@ -214,6 +230,7 @@ def user_mode():
     print(f"판정: {result}")
 
 
+# 메뉴를 출력하고 선택한 모드를 실행한다.
 def main():
     default_path = next((path for path in ("data/data.json", "data.json") if Path(path).exists()), "data/data.json")
     path = sys.argv[1] if len(sys.argv) > 1 else default_path
@@ -229,4 +246,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
