@@ -1,12 +1,14 @@
 """MAC 기반 Mini NPU 시뮬레이터."""
 
 import json
+import math
 import re
 import sys
 import time
 from pathlib import Path
 
 EPSILON = 1e-9
+MIN_SIZE = 3
 SIZES = (3, 5, 13, 25)
 PATTERN_KEY = re.compile(r"size_(\d+)_(\d+)") # e.g) size_13_7
 
@@ -17,12 +19,28 @@ def validate_matrix(value):
     if not isinstance(value, list) or not value:
         raise ValueError("행렬은 비어 있지 않은 2차원 리스트여야 합니다.")
     size = len(value)
+    if size < MIN_SIZE:
+        raise ValueError("행렬은 최소 3x3이어야 합니다.")
     if any(not isinstance(row, list) or len(row) != size for row in value):
         raise ValueError("NxN 정사각 행렬이어야 합니다.")
+
+    normalized = []
     try:
-        return [[float(item) for item in row] for row in value]
+        for row in value:
+            converted_row = []
+            for item in row:
+                if isinstance(item, bool):
+                    raise ValueError("행렬에는 불리언 값을 사용할 수 없습니다.")
+
+                number = float(item)
+                if not math.isfinite(number):
+                    raise ValueError("유한한 숫자만 입력할 수 있습니다.")
+
+                converted_row.append(number)
+            normalized.append(converted_row)
+        return normalized
     except (TypeError, ValueError) as error:
-        raise ValueError("행렬에는 숫자만 포함되어야 합니다.") from error
+        raise ValueError(str(error)) from error
 
 
 # 두 행렬의 같은 위치 값을 곱하고 모두 더한다.
