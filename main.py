@@ -8,11 +8,12 @@ from pathlib import Path
 
 EPSILON = 1e-9
 SIZES = (3, 5, 13, 25)
-PATTERN_KEY = re.compile(r"size_(\d+)_(\d+)")
+PATTERN_KEY = re.compile(r"size_(\d+)_(\d+)") # e.g) size_13_7
 
 
 # 입력값이 숫자로 이루어진 정사각 행렬인지 확인한다.
 def validate_matrix(value):
+    #EAFP(Easy to Ask Forgiveness than Permission) pattern
     if not isinstance(value, list) or not value:
         raise ValueError("행렬은 비어 있지 않은 2차원 리스트여야 합니다.")
     size = len(value)
@@ -82,6 +83,7 @@ def confirm_filters(filter_a, filter_b):
     # 행렬을 읽기 쉬운 형태로 출력한다.
     def show(matrix):
         for row in matrix:
+            # 정수처럼 표현할 수 있는 값은 .0을 제거
             print(" ".join(str(int(value)) if value.is_integer() else str(value) for value in row))
 
     print("\n입력한 필터를 확인합니다.\n필터 A")
@@ -129,16 +131,22 @@ def pattern_size(key):
 
 # 지정한 크기의 Cross 필터와 X 필터를 찾아 검증한다.
 def get_filters(filters, size):
+    # 크기 이름 만들기
     size_key = f"size_{size}"
+    # 해당 크기의 필터 묶음 가져오기
     item = filters.get(size_key)
+    # 필터 묶음이 딕셔너리인지 확인
     if not isinstance(item, dict):
         raise ValueError(f"필터 누락 또는 구조 오류: {size_key}")
     try:
+        # Cross와 X 필터 가져오기
         cross = item.get("Cross", item.get("cross"))
         x_filter = item.get("X", item.get("x"))
+        # 실제 행렬 검증
         cross, x_filter = validate_matrix(cross), validate_matrix(x_filter)
     except (TypeError, ValueError) as error:
         raise ValueError(f"필터 구조 오류: {size_key}") from error
+    # 행렬 크기 확인
     if len(cross) != size or len(x_filter) != size:
         raise ValueError(f"필터 크기 불일치: {size_key}")
     return cross, x_filter
@@ -173,6 +181,7 @@ def print_summary(results):
 # data.json의 모든 패턴을 판정하고 결과를 출력한다.
 def analyze_json(path):
     try:
+        # JSON을 읽고 filters와 patterns가 딕셔너리인지 확인한다.
         data = load_data(path)
         filters, patterns = data["filters"], data["patterns"]
         if not isinstance(filters, dict) or not isinstance(patterns, dict):
@@ -192,24 +201,31 @@ def analyze_json(path):
     results = []
     print("\n=== 패턴 분석 (라벨 정규화 적용) ===")
     for key, item in patterns.items():
+        # 오류가 발생해도 전체 분석을 계속할 수 있도록 케이스별 결과를 미리 만든다.
         result = {"key": key, "size": None, "time": None, "passed": False, "reason": ""}
         try:
             if not isinstance(item, dict) or "input" not in item or "expected" not in item:
                 raise ValueError("패턴에는 input과 expected가 필요합니다.")
+            # 패턴 키의 크기와 실제 입력 행렬의 크기를 검증한다.
             size = pattern_size(key)
             pattern = validate_matrix(item["input"])
             if len(pattern) != size:
                 raise ValueError("패턴 크기와 키의 size 값이 일치하지 않습니다.")
+            # 같은 크기의 Cross/X 필터로 두 점수를 계산하고 라벨을 통일한다.
             cross, x_filter = get_filters(filters, size)
             scores = mac(pattern, cross), mac(pattern, x_filter)
             predicted, expected = decide(*scores), normalize_label(item["expected"])
+            # 판정 결과와 성능 측정값을 현재 케이스의 결과에 저장한다.
             result.update(size=size, time=elapsed_ms(pattern, cross), passed=predicted == expected)
+            # 실패한 경우에는 동점인지 단순 오판인지 구분해 원인을 기록한다.
             result["reason"] = "" if result["passed"] else ("동점(UNDECIDED) 처리 규칙에 따라 FAIL" if predicted == "UNDECIDED" else f"예측값({predicted})과 expected({expected}) 불일치")
             print(f"\n--- {key} ---\nCross 점수: {scores[0]}\nX 점수: {scores[1]}")
             print(f"판정: {predicted} | expected: {expected} | {'PASS' if result['passed'] else 'FAIL'}")
         except (TypeError, ValueError, AttributeError) as error:
+            # 한 케이스의 오류를 기록하고 다음 패턴 분석으로 넘어간다.
             result["reason"] = str(error)
             print(f"\n--- {key} ---\nFAIL: {error}")
+        # 정상 케이스와 오류 케이스 모두 결과 목록에 포함한다.
         results.append(result)
     print_benchmark(results, filters)
     print_summary(results)
@@ -232,7 +248,12 @@ def user_mode():
 
 # 메뉴를 출력하고 선택한 모드를 실행한다.
 def main():
-    default_path = next((path for path in ("data/data.json", "data.json") if Path(path).exists()), "data/data.json")
+    default_path = "data/data.json"
+    for path in ("data/data.json", "data.json"):
+        if Path(path).exists():
+            default_path = path
+            break
+
     path = sys.argv[1] if len(sys.argv) > 1 else default_path
     print("=== Mini NPU Simulator ===\n\n[모드 선택]\n\n1. 사용자 입력 (3x3)\n2. data.json 분석")
     choice = safe_input("선택: ").strip()
