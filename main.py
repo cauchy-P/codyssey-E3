@@ -233,8 +233,10 @@ def analyze_json(path):
             cross, x_filter = get_filters(filters, size)
             scores = mac(pattern, cross), mac(pattern, x_filter)
             predicted, expected = decide(*scores), normalize_label(item["expected"])
+            # mode2: 판정과 expected를 비교해 PASS/FAIL을 정한다.
             # 판정 결과와 성능 측정값을 현재 케이스의 결과에 저장한다.
             result.update(size=size, time=elapsed_ms(pattern, cross), passed=predicted == expected)
+            # mode2: 실패 원인을 동점과 일반 불일치로 구분한다.
             # 실패한 경우에는 동점인지 단순 오판인지 구분해 원인을 기록한다.
             result["reason"] = "" if result["passed"] else ("동점(UNDECIDED) 처리 규칙에 따라 FAIL" if predicted == "UNDECIDED" else f"예측값({predicted})과 expected({expected}) 불일치")
             print(f"\n--- {key} ---\nCross 점수: {scores[0]}\nX 점수: {scores[1]}")
@@ -260,6 +262,7 @@ def user_mode():
     print(f"\n=== MAC 결과 ===\nA 점수: {score_a}\nB 점수: {score_b}")
     print(f"연산 시간(평균/10회): {elapsed_ms(pattern, filter_a):.6f} ms")
     result = decide(score_a, score_b)
+    # mode1: 공통 판정을 A/B/판정 불가로 바꿔 출력한다.
     result = {"Cross": "A", "X": "B", "UNDECIDED": "판정 불가"}[result]
     print(f"판정: {result}")
 
